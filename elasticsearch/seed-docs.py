@@ -1,28 +1,56 @@
+import os
+import sys
 from datetime import datetime
 from elasticsearch import Elasticsearch
+
 es = Elasticsearch(
-    ['35.200.94.22'],
+    ['3.28.94.22'],
     http_auth=('elastic','changeme'),
     port=80,
     headers={
-        'X-Host-Override' : 'elasticsearch.fausto',
-        'Host' : 'elasticsearch.fausto'
+        'X-Host-Override' : 'elasticsearch.edison',
+        'Host' : 'elasticsearch.edison'
     },
     use_ssl=False
 )
 
-doc = {
-    'author': 'kimchy',
-    'text': 'Elasticsearch: cool. bonsai cool.',
-    'timestamp': datetime.now(),
-}
-res = es.index(index="test-index", doc_type='tweet', id=1, body=doc)
-print(res['created'])
+idCounter = 101
+contentPath = sys.argv[1]
+for root, directories, filenames in os.walk(contentPath):
+    # for directory in directories:
+    #     print(os.path.join(root, directory) )
+    for filename in filenames: 
+        if filename.endswith('.txt'):
+            filePath = os.path.join(root,filename)
+            print(filePath)
+            with open(filePath, 'r') as myfile:
+                data=myfile.read()  #.replace('\n', '')
+                myfile.close()
+            
+            words = data.split(' ')
+            drName = 'Unknown'
+            for wIdx in range(0,len(words)):
+                w = words[wIdx]
+                if w.lower().startswith('dr.'):
+                    drName = w + ' ' + words[wIdx+1]
+                    print('DrName=',drName)
 
-res = es.get(index="test-index", doc_type='tweet', id=1)
-print(res['_source'])
+            doc = {
+                'author': drName,
+                'text': data,
+                'timestamp': datetime.now(),
+            }
+            res = es.index(index="clinical-data-index", doc_type='radiology-report', id=idCounter, body=doc)
+            # res = {
+            #     'created' : False
+            # }
+            print('Created radiology report:', res['created'])
+            idCounter = idCounter + 1
+            #print(data)
+            print('=======================================')
 
-es.indices.refresh(index="test-index")
+
+es.indices.refresh(index="clinical-data-index")
 
 res = es.search(index="test-index", body={"query": {"match_all": {}}})
 print("Got %d Hits:" % res['hits']['total'])
